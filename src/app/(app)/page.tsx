@@ -1,251 +1,367 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import {
-  ArrowRight,
   CheckCircle2,
   Clock,
   Lock,
-  Sparkles,
-  HelpCircle,
-  AlertCircle,
-  Check,
+  ChevronRight,
 } from 'lucide-react';
-import { PROBLEMS, TOPICS, TOPIC_BY_SLUG } from '@/content/neetcode150';
+import {
+  TOPIC_BY_SLUG,
+  TRACKS,
+  TRACK_BY_ID,
+  TRACK_COOKIE,
+  parseTrack,
+  problemsForTrack,
+  type TrackId,
+} from '@/content/neetcode150';
 import { createClient } from '@/lib/supabase/server';
 import { recommendNext, todayString, topicStats, type ProgressRow } from '@/lib/recommend';
-import { DifficultyBadge } from '@/components/ui';
+import { RoadmapTrackSwitcher } from '@/components/RoadmapTrackSwitcher';
+import { DifficultyBadge, StatusBadge } from '@/components/ui';
 
-export const metadata = { title: 'Roadmap · PatternRecall' };
+export const metadata = { title: 'Curriculum · PatternRecall' };
+
+const CURRICULUM_TIERS: {
+  stage: string;
+  title: string;
+  description: string;
+  slugs: string[];
+}[] = [
+  {
+    stage: 'Stage 1',
+    title: 'Array & pointer foundations',
+    description: 'Linear scans, hash lookups, and shrinking/growing index windows.',
+    slugs: ['arrays-hashing', 'two-pointers', 'sliding-window', 'stack'],
+  },
+  {
+    stage: 'Stage 2',
+    title: 'Logarithmic search & pointer structures',
+    description: 'Halving monotonic search spaces, pointer rewiring, and recursive tree traversals.',
+    slugs: ['binary-search', 'linked-list', 'trees'],
+  },
+  {
+    stage: 'Stage 3',
+    title: 'Priority queues, search trees & graphs',
+    description: 'Top-k streaming, prefix trees, exhaustive state-space search, and graph connectivity.',
+    slugs: ['heap', 'tries', 'backtracking', 'graphs', 'advanced-graphs'],
+  },
+  {
+    stage: 'Stage 4',
+    title: 'Dynamic programming, greedy & bit logic',
+    description: 'Overlapping subproblems, interval sweeps, locally optimal choices, and bitwise invariants.',
+    slugs: ['1d-dp', '2d-dp', 'greedy', 'intervals', 'math-geometry', 'bit-manipulation'],
+  },
+];
 
 export default async function RoadmapPage() {
+  const cookieStore = await cookies();
+  const activeTrack: TrackId = parseTrack(cookieStore.get(TRACK_COOKIE)?.value);
+  const trackMeta = TRACK_BY_ID.get(activeTrack)!;
+
   const supabase = await createClient();
   const { data } = await supabase
     .from('progress')
     .select('problem_slug, status, hints_used, attempts, next_review_on');
   const progress = new Map<string, ProgressRow>((data ?? []).map((r) => [r.problem_slug, r as ProgressRow]));
 
-  const rows = [...progress.values()];
-  const solvedAlone = rows.filter((r) => r.status === 'solved').length;
-  const neededHints = rows.filter((r) => r.status === 'hint').length;
-  const stuckCount = rows.filter((r) => r.status === 'stuck').length;
+  const trackProblems = problemsForTrack(activeTrack);
+  const bySlug = new Map(trackProblems.map((p) => [p.slug, p]));
+
+  const rowsInTrack = trackProblems
+    .map((p) => progress.get(p.slug))
+    .filter((r): r is ProgressRow => Boolean(r));
+
+  const solvedAlone = rowsInTrack.filter((r) => r.status === 'solved').length;
+  const neededHints = rowsInTrack.filter((r) => r.status === 'hint').length;
+  const stuckCount = rowsInTrack.filter((r) => r.status === 'stuck').length;
   const totalCompleted = solvedAlone + neededHints;
-  const totalProblems = PROBLEMS.length;
-  const overallPct = Math.round((totalCompleted / totalProblems) * 100);
+  const totalProblems = trackProblems.length;
+
+  const countsByTrack = Object.fromEntries(
+    TRACKS.map((t) => {
+      const list = problemsForTrack(t.id);
+      const completed = list.filter((p) => {
+        const st = progress.get(p.slug)?.status;
+        return st === 'solved' || st === 'hint';
+      }).length;
+      return [t.id, { completed, total: list.length }];
+    })
+  ) as Record<TrackId, { completed: number; total: number }>;
 
   const today = todayString();
-  const bySlug = new Map(PROBLEMS.map((p) => [p.slug, p]));
 
-  // All reviews currently due today
-  const dueReviews = rows
+  const dueReviews = rowsInTrack
     .filter((r) => r.status !== 'todo' && r.next_review_on && r.next_review_on <= today && bySlug.has(r.problem_slug))
     .map((r) => ({
       row: r,
       problem: bySlug.get(r.problem_slug)!,
     }));
 
-  const rec = recommendNext(progress, today);
+  const rec = recommendNext(progress, today, activeTrack);
+  const recTopic = rec ? TOPIC_BY_SLUG.get(rec.problem.topic) : null;
+  const recRow = rec ? progress.get(rec.problem.slug) : null;
 
   return (
-    <div className="space-y-8">
-      {/* Header & Stats Strip */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-10">
+      {/* Header & Compact Retention Ledger */}
+      <div className="border-b border-hairline pb-5 space-y-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Curriculum Roadmap</h1>
-            <p className="text-xs text-zinc-400 mt-1">
-              Active recall & spaced-repetition path across the NeetCode 150 patterns.
+            <h1 className="font-serif text-3xl font-medium tracking-tight text-white">
+              Algorithmic curriculum
+            </h1>
+            <p className="mt-1 text-sm text-pewter max-w-xl">
+              {trackMeta.tagline}
             </p>
           </div>
-          <div className="text-right">
-            <span className="font-mono text-sm font-semibold text-white">
-              {totalCompleted} / {totalProblems}
-            </span>
-            <span className="ml-1 text-xs text-zinc-400">attempted ({overallPct}%)</span>
-          </div>
+
+          <RoadmapTrackSwitcher currentTrack={activeTrack} countsByTrack={countsByTrack} />
         </div>
 
-        {/* Top Stats Cards */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 space-y-1">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
-              <Check className="h-3.5 w-3.5" /> Solved Alone
-            </span>
-            <p className="text-xl font-bold text-white">{solvedAlone}</p>
-            <p className="text-[11px] text-zinc-500">Scheduled for 7–21d</p>
+        {/* Segmented Retention Bar & Inline Counts */}
+        <div className="space-y-2 pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-pewter">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                <strong className="font-mono font-medium text-white">{solvedAlone}</strong> retained (7–21d)
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-amber-400" />
+                <strong className="font-mono font-medium text-white">{neededHints}</strong> assisted (2d)
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-rose-400" />
+                <strong className="font-mono font-medium text-white">{stuckCount}</strong> needs recall (1d)
+              </span>
+              {dueReviews.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-amber-300 font-medium">
+                  <Clock className="h-3.5 w-3.5" />
+                  <strong className="font-mono">{dueReviews.length}</strong> due today
+                </span>
+              )}
+            </div>
+
+            <div className="font-mono text-xs text-pewter">
+              <strong className="text-white">{totalCompleted}</strong> / {totalProblems} in {trackMeta.shortName}
+            </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 space-y-1">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-amber-400">
-              <HelpCircle className="h-3.5 w-3.5" /> Needed Hints
-            </span>
-            <p className="text-xl font-bold text-white">{neededHints}</p>
-            <p className="text-[11px] text-zinc-500">Scheduled for 2d</p>
-          </div>
-
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 space-y-1">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-red-400">
-              <AlertCircle className="h-3.5 w-3.5" /> Got Stuck
-            </span>
-            <p className="text-xl font-bold text-white">{stuckCount}</p>
-            <p className="text-[11px] text-zinc-500">Scheduled for 1d</p>
-          </div>
-
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 space-y-1">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-cyan-400">
-              <Clock className="h-3.5 w-3.5" /> Reviews Due
-            </span>
-            <p className="text-xl font-bold text-white">{dueReviews.length}</p>
-            <p className="text-[11px] text-zinc-500">Awaiting recall today</p>
+          <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface border border-hairline/60">
+            <div
+              className="h-full bg-emerald-400 transition-all duration-300"
+              style={{ width: `${totalProblems ? (solvedAlone / totalProblems) * 100 : 0}%` }}
+            />
+            <div
+              className="h-full bg-amber-400 transition-all duration-300"
+              style={{ width: `${totalProblems ? (neededHints / totalProblems) * 100 : 0}%` }}
+            />
+            <div
+              className="h-full bg-rose-400 transition-all duration-300"
+              style={{ width: `${totalProblems ? (stuckCount / totalProblems) * 100 : 0}%` }}
+            />
           </div>
         </div>
       </div>
 
-      {/* Up Next Recommended Problem */}
+      {/* HERO: Active Recall Index Card */}
       {rec ? (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
-              <Sparkles className="h-3.5 w-3.5" /> Recommended Next Action
-            </span>
-          </div>
-
-          <Link
-            href={`/problems/${rec.problem.slug}`}
-            className="group flex flex-wrap sm:flex-nowrap items-center justify-between gap-4 rounded-2xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 via-zinc-900/80 to-zinc-900/40 p-5 shadow-lg shadow-emerald-950/20 transition hover:border-emerald-500/70 hover:from-emerald-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+        <section aria-label="Next recall prompt" className="grid gap-4 lg:grid-cols-12 items-stretch">
+          <div
+            className={`flex flex-col justify-between rounded-xl border border-hairline bg-surface p-6 sm:p-7 shadow-sm ${
+              dueReviews.length > 1 ? 'lg:col-span-8' : 'lg:col-span-12'
+            }`}
           >
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-lg font-bold text-white group-hover:text-emerald-300 transition">
-                  {rec.problem.title}
-                </span>
-                <DifficultyBadge d={rec.problem.difficulty} />
-                <span className="text-xs text-zinc-400">
-                  in {TOPIC_BY_SLUG.get(rec.problem.topic)?.name}
-                </span>
-              </div>
-              <p className="text-xs text-zinc-300 flex items-center gap-1.5">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                {rec.reason}
-              </p>
-            </div>
-
-            <div className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-zinc-950 transition group-hover:bg-emerald-400">
-              <span>Solve now</span>
-              <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-            </div>
-          </Link>
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 text-center space-y-1">
-          <p className="text-lg font-bold text-white">All 150 problems solved! 🎉</p>
-          <p className="text-xs text-zinc-400">Keep checking back for spaced-repetition retention checkups.</p>
-        </div>
-      )}
-
-      {/* Due Reviews Queue (if multiple reviews exist) */}
-      {dueReviews.length > 0 && (
-        <div className="space-y-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5" /> Spaced Repetition Due Today ({dueReviews.length})
-            </h2>
-            <span className="text-[11px] text-zinc-400">Recall test before forgetting occurs</span>
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            {dueReviews.slice(0, 4).map(({ row, problem }) => (
-              <Link
-                key={problem.slug}
-                href={`/problems/${problem.slug}`}
-                className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 transition hover:border-amber-500/40 hover:bg-zinc-900"
-              >
-                <div className="space-y-0.5 min-w-0 pr-2">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-xs font-semibold text-white">{problem.title}</span>
-                    <DifficultyBadge d={problem.difficulty} />
-                  </div>
-                  <p className="text-[11px] text-zinc-400">
-                    Previous: <span className="capitalize text-zinc-300">{row.status}</span>
-                  </p>
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline/80 pb-3 text-xs text-pewter">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-cobalt">Up next in your queue</span>
+                  <span>/</span>
+                  <Link
+                    href={`/topics/${rec.problem.topic}`}
+                    className="text-ink hover:underline"
+                  >
+                    {recTopic?.name}
+                  </Link>
                 </div>
-                <ArrowRight className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-              </Link>
-            ))}
+                <div className="flex items-center gap-2 font-mono text-[11px]">
+                  <span>Target: {rec.problem.time} time, {rec.problem.space} space</span>
+                  {recRow?.attempts ? <span>({recRow.attempts} prev. attempts)</span> : null}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-baseline gap-3">
+                  <h2 className="font-serif text-2xl sm:text-3xl font-medium text-white tracking-tight">
+                    {rec.problem.title}
+                  </h2>
+                  <DifficultyBadge d={rec.problem.difficulty} />
+                  {recRow && recRow.status !== 'todo' && <StatusBadge status={recRow.status} />}
+                </div>
+                <p className="text-sm text-pewter max-w-2xl leading-relaxed">
+                  {rec.reason}. {recTopic?.summary}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-hairline/60">
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  href={`/problems/${rec.problem.slug}`}
+                  className="inline-flex items-center gap-2 rounded-lg bg-cobalt px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+                >
+                  Open problem workbench
+                </Link>
+                <a
+                  href={rec.problem.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-canvas px-3.5 py-2.5 text-xs font-medium text-pewter transition hover:border-pewter/50 hover:text-white"
+                >
+                  Read prompt on LeetCode
+                </a>
+              </div>
+
+              <span className="font-mono text-[11px] text-pewter">
+                Recall hint available inside workbench
+              </span>
+            </div>
           </div>
+
+          {/* Side Queue if multiple due reviews exist */}
+          {dueReviews.length > 1 && (
+            <div className="lg:col-span-4 flex flex-col justify-between rounded-xl border border-hairline bg-surface/60 p-5 space-y-4">
+              <div className="space-y-1 border-b border-hairline pb-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5" />
+                    Due for recall today ({dueReviews.length})
+                  </h3>
+                </div>
+                <p className="text-xs text-pewter">
+                  Scheduled by your prior self-ratings
+                </p>
+              </div>
+
+              <ul className="divide-y divide-hairline/70 flex-1">
+                {dueReviews.slice(0, 4).map(({ row, problem }) => (
+                  <li key={problem.slug}>
+                    <Link
+                      href={`/problems/${problem.slug}`}
+                      className="group flex items-center justify-between py-2.5 text-xs transition hover:text-white"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <p className="truncate font-medium text-ink group-hover:text-cobalt transition">
+                          {problem.title}
+                        </p>
+                        <p className="text-[11px] text-pewter">
+                          Last rated: {row.status === 'hint' ? 'assisted' : row.status}
+                        </p>
+                      </div>
+                      <DifficultyBadge d={problem.difficulty} />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      ) : (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-6 space-y-1">
+          <h2 className="font-serif text-xl font-medium text-white">
+            All {totalProblems} problems in {trackMeta.shortName} completed
+          </h2>
+          <p className="text-xs text-pewter">
+            Return when spaced-repetition reviews come due, or switch to a broader curriculum scope above.
+          </p>
         </div>
       )}
 
-      {/* Roadmap Topics Grid with Prerequisite Status */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-white">Pattern Roadmap by Topic</h2>
-          <span className="text-xs text-zinc-400">18 Topic Categories</span>
-        </div>
+      {/* Curriculum Ledger by Prerequisite Stage */}
+      <div className="space-y-8">
+        {CURRICULUM_TIERS.map((tier) => (
+          <section key={tier.stage} className="space-y-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-hairline pb-2">
+              <div className="flex flex-wrap items-baseline gap-2.5">
+                <span className="font-mono text-xs text-cobalt font-medium">{tier.stage}</span>
+                <h2 className="font-serif text-xl font-medium text-white">{tier.title}</h2>
+              </div>
+              <p className="text-xs text-pewter">{tier.description}</p>
+            </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          {TOPICS.map((t) => {
-            const { solved: s, total } = topicStats(progress, t.slug);
-            const pct = total ? Math.round((s / total) * 100) : 0;
-            const isMastered = s === total;
+            <div className="divide-y divide-hairline rounded-xl border border-hairline bg-surface/50 overflow-hidden">
+              {tier.slugs.map((slug) => {
+                const t = TOPIC_BY_SLUG.get(slug);
+                if (!t) return null;
 
-            // Prereq checking
-            const unmetPrereqs = t.prereqs.filter((slug) => {
-              const st = topicStats(progress, slug);
-              return st.solved < Math.ceil(st.total / 2);
-            });
-            const isUnlocked = unmetPrereqs.length === 0;
+                const { solved: s, total } = topicStats(progress, t.slug, activeTrack);
+                const pct = total ? Math.round((s / total) * 100) : 0;
+                const isMastered = total > 0 && s === total;
 
-            return (
-              <Link
-                key={t.slug}
-                href={`/topics/${t.slug}`}
-                className={`group relative rounded-2xl border p-4 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                  isMastered
-                    ? 'border-emerald-500/30 bg-emerald-500/5 hover:border-emerald-500/60'
-                    : isUnlocked
-                    ? 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-650 hover:bg-zinc-900/70'
-                    : 'border-zinc-850 bg-zinc-950/60 opacity-80 hover:border-zinc-700'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-sm text-white group-hover:text-emerald-300 transition">
-                        {t.name}
-                      </h3>
-                      {isMastered ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                      ) : !isUnlocked ? (
-                        <Lock className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                      ) : null}
+                const unmetPrereqs = t.prereqs.filter((prSlug) => {
+                  const st = topicStats(progress, prSlug, activeTrack);
+                  return st.total > 0 && st.solved < Math.ceil(st.total / 2);
+                });
+                const isUnlocked = unmetPrereqs.length === 0;
+
+                const topicDueCount = dueReviews.filter((d) => d.problem.topic === t.slug).length;
+
+                return (
+                  <Link
+                    key={t.slug}
+                    href={`/topics/${t.slug}`}
+                    className={`group flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt ${
+                      isUnlocked
+                        ? 'hover:bg-elevated/70'
+                        : 'bg-canvas/40 opacity-75 hover:opacity-100 hover:bg-surface'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-semibold text-white group-hover:text-cobalt transition">
+                          {t.name}
+                        </h3>
+                        {isMastered ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                        ) : !isUnlocked ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-canvas px-1.5 py-0.5 font-mono text-[10px] text-pewter border border-hairline">
+                            <Lock className="h-2.5 w-2.5" />
+                            After 50% in {unmetPrereqs.map((pr) => TOPIC_BY_SLUG.get(pr)?.name).join(', ')}
+                          </span>
+                        ) : null}
+
+                        {topicDueCount > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] text-amber-300">
+                            {topicDueCount} due
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-pewter line-clamp-1">{t.summary}</p>
                     </div>
 
-                    {!isUnlocked ? (
-                      <p className="text-[11px] text-zinc-500">
-                        Prereq: 50% in {unmetPrereqs.map((pr) => TOPIC_BY_SLUG.get(pr)?.name).join(', ')}
-                      </p>
-                    ) : (
-                      <p className="text-[11px] text-zinc-400 line-clamp-1">{t.summary}</p>
-                    )}
-                  </div>
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="w-24 sm:w-32 h-1.5 overflow-hidden rounded-full bg-canvas border border-hairline/70">
+                        <div
+                          className={`h-full transition-all duration-300 ${
+                            isMastered ? 'bg-emerald-400' : 'bg-cobalt'
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
 
-                  <span className="shrink-0 font-mono text-xs text-zinc-400">
-                    <strong className="text-white">{s}</strong> / {total}
-                  </span>
-                </div>
+                      <span className="w-12 text-right font-mono text-xs text-pewter">
+                        <strong className="text-white">{s}</strong>/{total}
+                      </span>
 
-                {/* Progress bar */}
-                <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
-                  <div
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      isMastered ? 'bg-emerald-400' : 'bg-emerald-500'
-                    }`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                      <ChevronRight className="h-4 w-4 text-pewter transition group-hover:translate-x-0.5 group-hover:text-white" />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );

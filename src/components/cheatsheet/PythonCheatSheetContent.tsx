@@ -711,39 +711,39 @@ export const CHEAT_SHEET_SECTIONS: CheatSection[] = [
 ];
 
 const CATEGORY_TABS: { id: 'all' | CheatCategory; label: string; icon: typeof BookOpen; count: number }[] = [
-  { id: 'all', label: 'All Topics', icon: Sparkles, count: CHEAT_SHEET_SECTIONS.length },
-  {
-    id: 'pandas',
-    label: 'Pandas (1–11)',
-    icon: Table2,
-    count: CHEAT_SHEET_SECTIONS.filter((s) => s.category === 'pandas').length,
-  },
+  { id: 'all', label: 'All topics', icon: Sparkles, count: CHEAT_SHEET_SECTIONS.length },
   {
     id: 'python',
-    label: 'Python Core (1–6)',
+    label: 'Python core',
     icon: BookOpen,
     count: CHEAT_SHEET_SECTIONS.filter((s) => s.category === 'python').length,
   },
   {
     id: 'dsa',
-    label: 'DSA & Big-O (1–3)',
+    label: 'DSA & Big-O',
     icon: Cpu,
     count: CHEAT_SHEET_SECTIONS.filter((s) => s.category === 'dsa').length,
+  },
+  {
+    id: 'pandas',
+    label: 'Pandas',
+    icon: Table2,
+    count: CHEAT_SHEET_SECTIONS.filter((s) => s.category === 'pandas').length,
   },
 ];
 
 const CATEGORY_BADGE: Record<CheatCategory, { label: string; className: string }> = {
   pandas: {
     label: 'Pandas',
-    className: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+    className: 'bg-sky-500/10 text-sky-300 border-sky-500/25',
   },
   python: {
-    label: 'Python Core',
-    className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+    label: 'Python core',
+    className: 'bg-cobalt/10 text-blue-300 border-cobalt/30',
   },
   dsa: {
     label: 'DSA & Big-O',
-    className: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+    className: 'bg-amber-500/10 text-amber-300 border-amber-500/25',
   },
 };
 
@@ -797,37 +797,34 @@ export function PythonCheatSheetContent({ compact = false }: { compact?: boolean
     .filter((sec) => sec.groups.length > 0);
 
   return (
-    <div className="space-y-5">
-      {/* Top Controls: Search + Track Switcher */}
-      <div className="space-y-3 rounded-2xl border border-zinc-800/90 bg-zinc-900/50 p-3.5">
-        {/* Search Input */}
+    <div className="space-y-6">
+      {/* Top Controls: Search + Category Filter */}
+      <div className="space-y-3 rounded-xl border border-hairline bg-surface p-3.5">
         <div className="relative">
-          <Search className="absolute left-3.5 top-3 h-4 w-4 text-zinc-400" />
+          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-pewter" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search any command or topic (e.g. read_csv, loc, groupby, pivot_table, dict, bisect)..."
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-10 pr-9 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none transition"
+            placeholder="Filter by method or concept (e.g. bisect, deque, Counter, loc, groupby)..."
+            className="w-full rounded-lg border border-hairline bg-canvas pl-10 pr-9 py-2 text-xs sm:text-sm text-ink placeholder-pewter/60 focus:border-cobalt focus:outline-none transition"
           />
           {search && (
             <button
               type="button"
               onClick={() => setSearch('')}
-              aria-label="Clear search"
-              className="absolute right-3 top-2.5 rounded p-0.5 text-zinc-400 hover:text-white"
+              aria-label="Clear filter"
+              className="absolute right-2.5 top-2 rounded p-0.5 text-pewter hover:text-white"
             >
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
 
-        {/* Track Tabs */}
         {!isSearching && (
           <div className="space-y-2.5">
             <div className="flex flex-wrap gap-1.5">
               {CATEGORY_TABS.map((tab) => {
-                const Icon = tab.icon;
                 const active = activeCategory === tab.id;
                 return (
                   <button
@@ -837,45 +834,43 @@ export function PythonCheatSheetContent({ compact = false }: { compact?: boolean
                       setActiveCategory(tab.id);
                       setActiveSectionId('all');
                     }}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                    className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition ${
                       active
-                        ? 'bg-emerald-500 text-zinc-950 font-semibold shadow-sm'
-                        : 'bg-zinc-950/90 text-zinc-300 hover:bg-zinc-800 hover:text-white border border-zinc-800'
+                        ? 'bg-cobalt text-white shadow-sm'
+                        : 'bg-canvas text-pewter hover:bg-elevated hover:text-white border border-hairline'
                     }`}
                   >
-                    <Icon className="h-3.5 w-3.5" />
                     <span>{tab.label}</span>
+                    <span className="font-mono text-[10px] opacity-80">{tab.count}</span>
                   </button>
                 );
               })}
             </div>
 
-            {/* Section Jump Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-zinc-800/70">
-              <span className="text-[11px] font-medium text-zinc-400 mr-1">Jump to:</span>
+            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-hairline">
               <button
                 type="button"
                 onClick={() => setActiveSectionId('all')}
-                className={`rounded-md px-2 py-1 text-[11px] font-medium transition ${
+                className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
                   activeSectionId === 'all'
-                    ? 'bg-zinc-800 text-white border border-zinc-700'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+                    ? 'bg-elevated text-white border border-hairline'
+                    : 'text-pewter hover:text-white'
                 }`}
               >
-                Show All ({categorySections.length})
+                All ({categorySections.length})
               </button>
               {categorySections.map((sec) => (
                 <button
                   key={sec.id}
                   type="button"
                   onClick={() => setActiveSectionId(sec.id)}
-                  className={`rounded-md px-2 py-1 text-[11px] font-medium transition ${
+                  className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${
                     activeSectionId === sec.id
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent'
+                      ? 'bg-cobalt/20 text-blue-300 border border-cobalt/40'
+                      : 'text-pewter hover:text-white border border-transparent'
                   }`}
                 >
-                  {sec.number}. {sec.title.split(' (')[0]}
+                  {sec.title.split(' (')[0]}
                 </button>
               ))}
             </div>
@@ -885,78 +880,76 @@ export function PythonCheatSheetContent({ compact = false }: { compact?: boolean
 
       {/* Empty Search State */}
       {displayedSections.length === 0 && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-8 text-center space-y-2">
-          <p className="text-sm text-zinc-300">No commands found matching &ldquo;{search}&rdquo;</p>
+        <div className="rounded-xl border border-hairline bg-surface p-8 text-center space-y-2">
+          <p className="text-sm text-ink">No syntax entries match &ldquo;{search}&rdquo;.</p>
           <button
             type="button"
             onClick={() => setSearch('')}
-            className="text-xs font-semibold text-emerald-400 hover:underline"
+            className="text-xs font-medium text-cobalt hover:underline"
           >
-            Clear search filter
+            Reset filter
           </button>
         </div>
       )}
 
-      {/* Easy-to-Read Sections List */}
-      <div className="space-y-6">
+      {/* Specification Tables */}
+      <div className="space-y-8">
         {displayedSections.map((section) => {
           const badge = CATEGORY_BADGE[section.category];
           return (
             <section
               key={section.id}
-              className="overflow-hidden rounded-2xl border border-zinc-800/90 bg-zinc-900/30"
+              className="overflow-hidden rounded-xl border border-hairline bg-surface/50"
             >
               {/* Section Header */}
-              <div className="border-b border-zinc-800/90 bg-zinc-900/80 px-4 py-3.5 sm:px-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 font-mono text-xs font-bold text-emerald-400 border border-emerald-500/30">
-                      {section.number}
-                    </span>
-                    <h2 className="text-base font-bold text-white">{section.title}</h2>
-                  </div>
+              <div className="border-b border-hairline bg-surface px-4 py-3.5 sm:px-5">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="font-serif text-xl font-medium text-white">{section.title}</h2>
                   <span
-                    className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${badge.className}`}
+                    className={`rounded border px-2 py-0.5 font-mono text-[10px] font-medium ${badge.className}`}
                   >
                     {badge.label}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-zinc-400 leading-relaxed">{section.subtitle}</p>
+                <p className="mt-1 text-xs text-pewter leading-relaxed max-w-2xl">
+                  {section.subtitle}
+                </p>
                 {section.tip && (
-                  <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-200">
-                    <span>💡</span>
-                    <span>{section.tip}</span>
-                  </div>
+                  <p className="mt-2 rounded border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-200 inline-block">
+                    {section.tip}
+                  </p>
                 )}
               </div>
 
-              {/* Section Sub-Groups & Clean Reference Rows */}
-              <div className="divide-y divide-zinc-800/70">
+              {/* Clean Ledger Groups */}
+              <div className="divide-y divide-hairline">
                 {section.groups.map((group, gIdx) => (
-                  <div key={gIdx} className="p-3.5 sm:p-4 space-y-2.5">
+                  <div key={gIdx}>
                     {group.subtitle && (
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400/90">
-                        {group.subtitle}
-                      </h3>
+                      <div className="bg-canvas/60 px-4 py-2 border-b border-hairline/70">
+                        <h3 className="text-xs font-semibold text-ink">
+                          {group.subtitle}
+                        </h3>
+                      </div>
                     )}
 
-                    <div className="divide-y divide-zinc-800/60 rounded-xl border border-zinc-800/80 bg-zinc-950/60">
+                    <div className="divide-y divide-hairline/60">
                       {group.rows.map((row, rIdx) => {
                         const rowKey = `${section.id}-${gIdx}-${rIdx}`;
                         return (
                           <div
                             key={rowKey}
-                            className={`flex flex-col ${
-                              compact ? ' gap-1.5' : 'md:flex-row md:items-center gap-2 md:gap-4'
-                            } p-2.5 sm:px-3.5 hover:bg-zinc-900/50 transition`}
+                            className={`group flex flex-col ${
+                              compact ? 'gap-1.5' : 'md:flex-row md:items-baseline gap-2 md:gap-6'
+                            } px-4 py-2.5 hover:bg-elevated/40 transition`}
                           >
                             {/* Left: Code Syntax + Copy button */}
                             <div
-                              className={`flex items-center justify-between gap-2 rounded-lg border border-zinc-800/90 bg-zinc-950 px-2.5 py-1.5 ${
-                                compact ? 'w-full' : 'md:w-[46%] shrink-0'
+                              className={`flex items-center justify-between gap-2 ${
+                                compact ? 'w-full' : 'md:w-[44%] shrink-0'
                               }`}
                             >
-                              <code className="font-mono text-xs text-emerald-300 break-all whitespace-pre-wrap leading-relaxed">
+                              <code className="font-mono text-xs text-blue-300 break-all whitespace-pre-wrap leading-relaxed">
                                 {row.code}
                               </code>
                               <button
@@ -964,7 +957,7 @@ export function PythonCheatSheetContent({ compact = false }: { compact?: boolean
                                 onClick={() => handleCopy(row.code, rowKey)}
                                 aria-label={`Copy ${row.code}`}
                                 title="Copy syntax"
-                                className="shrink-0 rounded p-1 text-zinc-500 hover:bg-zinc-800 hover:text-white transition"
+                                className="shrink-0 rounded p-1 text-pewter opacity-60 group-hover:opacity-100 hover:bg-canvas hover:text-white transition"
                               >
                                 {copiedKey === rowKey ? (
                                   <Check className="h-3.5 w-3.5 text-emerald-400" />
@@ -975,7 +968,7 @@ export function PythonCheatSheetContent({ compact = false }: { compact?: boolean
                             </div>
 
                             {/* Right: Plain-English Explanation */}
-                            <p className="text-xs sm:text-[13px] text-zinc-300 leading-relaxed flex-1">
+                            <p className="text-xs text-ink/90 leading-relaxed flex-1 max-w-[68ch]">
                               {row.desc}
                             </p>
                           </div>

@@ -1,4 +1,4 @@
-import { PROBLEMS, TOPICS, problemsOf, type Problem } from '@/content/neetcode150';
+import { PROBLEMS, TOPICS, problemsForTrack, problemsOf, type Problem, type TrackId } from '@/content/neetcode150';
 
 export type Status = 'todo' | 'solved' | 'hint' | 'stuck';
 
@@ -35,15 +35,24 @@ export function nextReviewDate(status: Status, attempts: number, today: string):
   return addDays(today, attempts >= 3 ? 21 : 7); // solved alone
 }
 
-export function topicStats(progress: Map<string, ProgressRow>, topic: string) {
-  const list = problemsOf(topic);
+export function topicStats(
+  progress: Map<string, ProgressRow>,
+  topic: string,
+  track: TrackId = 'neetcode150'
+) {
+  const list = problemsOf(topic, track);
   const solved = list.filter((p) => progress.get(p.slug)?.status === 'solved').length;
   return { solved, total: list.length };
 }
 
 /** Pick the single best problem to do next, with a human-readable reason. */
-export function recommendNext(progress: Map<string, ProgressRow>, today: string): Recommendation | null {
-  const bySlug = new Map(PROBLEMS.map((p) => [p.slug, p]));
+export function recommendNext(
+  progress: Map<string, ProgressRow>,
+  today: string,
+  track: TrackId = 'neetcode150'
+): Recommendation | null {
+  const trackProblems = problemsForTrack(track);
+  const bySlug = new Map(trackProblems.map((p) => [p.slug, p]));
 
   // 1. Reviews that are due. Stuck first, then hints, then solved; oldest first.
   const rank = { stuck: 0, hint: 1, solved: 2, todo: 3 } as const;
@@ -57,13 +66,13 @@ export function recommendNext(progress: Map<string, ProgressRow>, today: string)
   }
 
   const todoIn = (topic: string) =>
-    problemsOf(topic)
+    problemsOf(topic, track)
       .filter((p) => (progress.get(p.slug)?.status ?? 'todo') === 'todo')
       .sort((a, b) => DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty]);
 
   // 2. Weak topic: 2+ problems currently marked hint/stuck → easiest untouched problem there.
   for (const t of TOPICS) {
-    const weak = problemsOf(t.slug).filter((p) => {
+    const weak = problemsOf(t.slug, track).filter((p) => {
       const s = progress.get(p.slug)?.status;
       return s === 'hint' || s === 'stuck';
     }).length;
@@ -76,17 +85,17 @@ export function recommendNext(progress: Map<string, ProgressRow>, today: string)
   // 3. Roadmap order: first unlocked topic with unsolved problems.
   for (const t of TOPICS) {
     const unlocked = t.prereqs.every((slug) => {
-      const { solved, total } = topicStats(progress, slug);
-      return solved >= Math.ceil(total / 2);
+      const { solved, total } = topicStats(progress, slug, track);
+      return total === 0 || solved >= Math.ceil(total / 2);
     });
     const next = todoIn(t.slug)[0];
     if (unlocked && next) {
-      const { solved, total } = topicStats(progress, t.slug);
+      const { solved, total } = topicStats(progress, t.slug, track);
       return { problem: next, reason: `Next on the roadmap: ${t.name} (${solved} / ${total} solved).` };
     }
   }
 
   // 4. Fallback: anything unsolved (e.g. prerequisites never reached 50%).
-  const any = PROBLEMS.find((p) => (progress.get(p.slug)?.status ?? 'todo') === 'todo');
+  const any = trackProblems.find((p) => (progress.get(p.slug)?.status ?? 'todo') === 'todo');
   return any ? { problem: any, reason: 'Next unsolved problem.' } : null;
 }

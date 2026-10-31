@@ -1,4 +1,13 @@
 export type Difficulty = 'Easy' | 'Medium' | 'Hard';
+export type TrackId = 'core50' | 'blind75' | 'neetcode150';
+
+export interface TrackMeta {
+  id: TrackId;
+  name: string;
+  shortName: string;
+  count: number;
+  tagline: string;
+}
 
 export interface Topic {
   slug: string;
@@ -17,6 +26,9 @@ export interface Problem {
   hint: string; // level-1 nudge (no spoilers)
   time: string; // optimal time complexity
   space: string; // optimal space complexity
+  tracks: TrackId[];
+  isCore: boolean;
+  isBlind75: boolean;
 }
 
 export const TOPICS: Topic[] = [
@@ -270,19 +282,234 @@ const ROWS: Record<string, Row[]> = {
   ],
 };
 
+export const CORE_50_SLUGS = new Set<string>([
+  // Arrays & Hashing (4)
+  'two-sum',
+  'group-anagrams',
+  'top-k-frequent-elements',
+  'product-of-array-except-self',
+  // Two Pointers (3)
+  'valid-palindrome',
+  '3sum',
+  'container-with-most-water',
+  // Sliding Window (3)
+  'best-time-to-buy-and-sell-stock',
+  'longest-substring-without-repeating-characters',
+  'minimum-window-substring',
+  // Stack (3)
+  'valid-parentheses',
+  'min-stack',
+  'daily-temperatures',
+  // Binary Search (3)
+  'binary-search',
+  'koko-eating-bananas',
+  'search-in-rotated-sorted-array',
+  // Linked List (3)
+  'reverse-linked-list',
+  'merge-two-sorted-lists',
+  'linked-list-cycle',
+  // Trees (4)
+  'invert-binary-tree',
+  'maximum-depth-of-binary-tree',
+  'binary-tree-level-order-traversal',
+  'validate-binary-search-tree',
+  // Heap / Priority Queue (2)
+  'kth-largest-element-in-an-array',
+  'find-median-from-data-stream',
+  // Backtracking (3)
+  'subsets',
+  'combination-sum',
+  'word-search',
+  // Tries (2)
+  'implement-trie-prefix-tree',
+  'design-add-and-search-words-data-structure',
+  // Graphs (4)
+  'number-of-islands',
+  'clone-graph',
+  'course-schedule',
+  'rotting-oranges',
+  // Advanced Graphs (2)
+  'network-delay-time',
+  'min-cost-to-connect-all-points',
+  // 1-D DP (4)
+  'climbing-stairs',
+  'house-robber',
+  'coin-change',
+  'longest-increasing-subsequence',
+  // 2-D DP (2)
+  'unique-paths',
+  'longest-common-subsequence',
+  // Greedy (2)
+  'maximum-subarray',
+  'jump-game',
+  // Intervals (2)
+  'merge-intervals',
+  'non-overlapping-intervals',
+  // Math & Geometry (2)
+  'rotate-image',
+  'spiral-matrix',
+  // Bit Manipulation (2)
+  'single-number',
+  'number-of-1-bits',
+]);
+
+export const BLIND_75_SLUGS = new Set<string>([
+  // Arrays & Hashing (8)
+  'contains-duplicate',
+  'valid-anagram',
+  'two-sum',
+  'group-anagrams',
+  'top-k-frequent-elements',
+  'encode-and-decode-strings',
+  'product-of-array-except-self',
+  'longest-consecutive-sequence',
+  // Two Pointers (3)
+  'valid-palindrome',
+  '3sum',
+  'container-with-most-water',
+  // Sliding Window (4)
+  'best-time-to-buy-and-sell-stock',
+  'longest-substring-without-repeating-characters',
+  'longest-repeating-character-replacement',
+  'minimum-window-substring',
+  // Stack (1 + core)
+  'valid-parentheses',
+  // Binary Search (2)
+  'find-minimum-in-rotated-sorted-array',
+  'search-in-rotated-sorted-array',
+  // Linked List (6)
+  'reverse-linked-list',
+  'merge-two-sorted-lists',
+  'reorder-list',
+  'remove-nth-node-from-end-of-list',
+  'linked-list-cycle',
+  'merge-k-sorted-lists',
+  // Trees (11)
+  'invert-binary-tree',
+  'maximum-depth-of-binary-tree',
+  'same-tree',
+  'subtree-of-another-tree',
+  'lowest-common-ancestor-of-a-binary-search-tree',
+  'binary-tree-level-order-traversal',
+  'validate-binary-search-tree',
+  'kth-smallest-element-in-a-bst',
+  'construct-binary-tree-from-preorder-and-inorder-traversal',
+  'binary-tree-maximum-path-sum',
+  'serialize-and-deserialize-binary-tree',
+  // Heap (1)
+  'find-median-from-data-stream',
+  // Backtracking (2)
+  'combination-sum',
+  'word-search',
+  // Tries (3)
+  'implement-trie-prefix-tree',
+  'design-add-and-search-words-data-structure',
+  'word-search-ii',
+  // Graphs (6)
+  'number-of-islands',
+  'clone-graph',
+  'pacific-atlantic-water-flow',
+  'course-schedule',
+  'graph-valid-tree',
+  'number-of-connected-components-in-an-undirected-graph',
+  // Advanced Graphs (1)
+  'alien-dictionary',
+  // 1-D DP (10)
+  'climbing-stairs',
+  'house-robber',
+  'house-robber-ii',
+  'longest-palindromic-substring',
+  'palindromic-substrings',
+  'decode-ways',
+  'coin-change',
+  'maximum-product-subarray',
+  'word-break',
+  'longest-increasing-subsequence',
+  // 2-D DP (2)
+  'unique-paths',
+  'longest-common-subsequence',
+  // Greedy (2)
+  'maximum-subarray',
+  'jump-game',
+  // Intervals (5)
+  'insert-interval',
+  'merge-intervals',
+  'non-overlapping-intervals',
+  'meeting-rooms',
+  'meeting-rooms-ii',
+  // Math & Geometry (3)
+  'rotate-image',
+  'spiral-matrix',
+  'set-matrix-zeroes',
+  // Bit Manipulation (5)
+  'number-of-1-bits',
+  'counting-bits',
+  'reverse-bits',
+  'missing-number',
+  'sum-of-two-integers',
+]);
+
 export const PROBLEMS: Problem[] = TOPICS.flatMap((t) =>
-  (ROWS[t.slug] ?? []).map(([slug, title, d, hint, time, space, url]) => ({
-    slug,
-    title,
-    topic: t.slug,
-    difficulty: D[d],
-    url: url ?? `https://leetcode.com/problems/${slug}/`,
-    hint,
-    time,
-    space,
-  }))
+  (ROWS[t.slug] ?? []).map(([slug, title, d, hint, time, space, url]) => {
+    const isCore = CORE_50_SLUGS.has(slug);
+    const isBlind75 = BLIND_75_SLUGS.has(slug);
+    const tracks: TrackId[] = ['neetcode150'];
+    if (isBlind75) tracks.unshift('blind75');
+    if (isCore) tracks.unshift('core50');
+    return {
+      slug,
+      title,
+      topic: t.slug,
+      difficulty: D[d],
+      url: url ?? `https://leetcode.com/problems/${slug}/`,
+      hint,
+      time,
+      space,
+      tracks,
+      isCore,
+      isBlind75,
+    };
+  })
 );
+
+export const TRACKS: TrackMeta[] = [
+  {
+    id: 'core50',
+    name: 'Core 50 (Max Concepts)',
+    shortName: 'Core 50',
+    count: CORE_50_SLUGS.size,
+    tagline: 'Cover all 18 pattern families in 50 high-signal canonical problems — zero fluff.',
+  },
+  {
+    id: 'blind75',
+    name: 'Blind 75',
+    shortName: 'Blind 75',
+    count: BLIND_75_SLUGS.size,
+    tagline: 'The classic 75-problem interview essential set across core data structures.',
+  },
+  {
+    id: 'neetcode150',
+    name: 'NeetCode 150',
+    shortName: 'Full 150',
+    count: PROBLEMS.length,
+    tagline: 'Complete active-recall & spaced-repetition mastery across all 150 problems.',
+  },
+];
+
+export const TRACK_BY_ID = new Map(TRACKS.map((t) => [t.id, t]));
+export const DEFAULT_TRACK: TrackId = 'neetcode150';
+export const TRACK_COOKIE = 'pr_roadmap_track';
+
+export function parseTrack(raw?: string | null): TrackId {
+  if (raw === 'core50' || raw === 'blind75' || raw === 'neetcode150') return raw;
+  return DEFAULT_TRACK;
+}
 
 export const PROBLEM_BY_SLUG = new Map(PROBLEMS.map((p) => [p.slug, p]));
 export const TOPIC_BY_SLUG = new Map(TOPICS.map((t) => [t.slug, t]));
-export const problemsOf = (topic: string) => PROBLEMS.filter((p) => p.topic === topic);
+
+export const problemsForTrack = (track: TrackId = 'neetcode150') =>
+  track === 'neetcode150' ? PROBLEMS : PROBLEMS.filter((p) => p.tracks.includes(track));
+
+export const problemsOf = (topic: string, track: TrackId = 'neetcode150') =>
+  PROBLEMS.filter((p) => p.topic === topic && (track === 'neetcode150' || p.tracks.includes(track)));

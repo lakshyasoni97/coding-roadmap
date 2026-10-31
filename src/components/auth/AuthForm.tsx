@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { loginAction, signUpAction } from '@/lib/actions/auth.actions';
 
 export function AuthForm() {
@@ -9,30 +9,29 @@ export function AuthForm() {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <div className="space-y-6">
-      {/* Mode Switcher Tabs */}
-      <div className="grid grid-cols-2 rounded-xl bg-zinc-950 p-1 border border-zinc-800">
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 rounded-lg bg-canvas p-1 border border-hairline">
         <button
           type="button"
           onClick={() => setMode('signin')}
-          className={`rounded-lg py-2 text-xs font-semibold transition ${
+          className={`rounded-md py-1.5 text-xs font-medium transition ${
             mode === 'signin'
-              ? 'bg-zinc-800 text-white shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200'
+              ? 'bg-elevated text-white shadow-sm'
+              : 'text-pewter hover:text-ink'
           }`}
         >
-          Sign In
+          Sign in
         </button>
         <button
           type="button"
           onClick={() => setMode('signup')}
-          className={`rounded-lg py-2 text-xs font-semibold transition ${
+          className={`rounded-md py-1.5 text-xs font-medium transition ${
             mode === 'signup'
-              ? 'bg-zinc-800 text-white shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200'
+              ? 'bg-elevated text-white shadow-sm'
+              : 'text-pewter hover:text-ink'
           }`}
         >
-          Create Account
+          Create account
         </button>
       </div>
 
@@ -40,9 +39,9 @@ export function AuthForm() {
         <div>
           <label
             htmlFor="auth-email"
-            className="block text-xs font-medium uppercase tracking-wider text-zinc-300 mb-1.5"
+            className="block text-xs font-medium text-ink mb-1.5"
           >
-            Email Address
+            Email address
           </label>
           <input
             id="auth-email"
@@ -51,14 +50,14 @@ export function AuthForm() {
             required
             autoComplete="email"
             placeholder="you@example.com"
-            className="block w-full rounded-xl border border-zinc-700/80 bg-zinc-950/80 px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="block w-full rounded-lg border border-hairline bg-canvas px-3.5 py-2.5 text-sm text-white placeholder-pewter/50 transition focus:border-cobalt focus:outline-none"
           />
         </div>
 
         <div>
           <label
             htmlFor="auth-password"
-            className="block text-xs font-medium uppercase tracking-wider text-zinc-300 mb-1.5"
+            className="block text-xs font-medium text-ink mb-1.5"
           >
             Password
           </label>
@@ -70,26 +69,25 @@ export function AuthForm() {
               required
               autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
               placeholder="••••••••••••"
-              className="block w-full rounded-xl border border-zinc-700/80 bg-zinc-950/80 px-3.5 py-2.5 pr-10 text-sm text-white placeholder-zinc-500 transition focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="block w-full rounded-lg border border-hairline bg-canvas px-3.5 py-2.5 pr-10 text-sm text-white placeholder-pewter/50 transition focus:border-cobalt focus:outline-none"
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
-              className="absolute right-2.5 top-2.5 p-1 text-zinc-400 hover:text-zinc-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+              className="absolute right-2.5 top-2.5 p-1 text-pewter hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt rounded"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
-        <div className="pt-2">
+        <div className="pt-1">
           <button
             type="submit"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
+            className="flex w-full items-center justify-center rounded-lg bg-cobalt py-2.5 text-xs font-semibold text-white transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
           >
-            <span>{mode === 'signin' ? 'Sign In to PatternRecall' : 'Create Free Account'}</span>
-            <ArrowRight className="h-4 w-4" />
+            {mode === 'signin' ? 'Sign in to workbench' : 'Create account'}
           </button>
         </div>
       </form>

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { ExternalLink, Clock, ChevronRight, Check } from 'lucide-react';
+import { ExternalLink, Clock, Check } from 'lucide-react';
 import type { Problem } from '@/content/neetcode150';
 import type { Status } from '@/lib/recommend';
 import { rateProblemAction } from '@/lib/progress.actions';
@@ -12,10 +12,12 @@ export function ProblemTable({
   problems,
   initial,
   dueSlugs = [],
+  showTrackBadges = true,
 }: {
   problems: Problem[];
   initial: Record<string, Status>;
   dueSlugs?: string[];
+  showTrackBadges?: boolean;
 }) {
   const [statuses, setStatuses] = useState(initial);
   const [pendingSlug, setPendingSlug] = useState<string | null>(null);
@@ -31,14 +33,14 @@ export function ProblemTable({
       const res = await rateProblemAction(slug, next);
       setPendingSlug(null);
       if (res.error) {
-        setStatuses((s) => ({ ...s, [slug]: prev })); // rollback
+        setStatuses((s) => ({ ...s, [slug]: prev }));
       }
     });
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/30">
-      <ul className="divide-y divide-zinc-800/80">
+    <div className="overflow-hidden rounded-xl border border-hairline bg-surface/50">
+      <ul className="divide-y divide-hairline">
         {problems.map((p) => {
           const status = statuses[p.slug] ?? 'todo';
           const isDue = dueSlugs.includes(p.slug);
@@ -47,69 +49,82 @@ export function ProblemTable({
           return (
             <li
               key={p.slug}
-              className="group flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 px-4 py-3.5 transition hover:bg-zinc-850/50"
+              className="group flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 px-4 py-3 transition hover:bg-elevated/60"
             >
               <div className="flex min-w-0 items-center gap-3 flex-1">
                 <button
                   type="button"
                   onClick={() => handleQuickToggle(p.slug, status)}
                   disabled={isPending}
-                  title={status === 'solved' ? 'Mark as not completed' : 'Mark as solved alone'}
+                  title={status === 'solved' ? 'Mark as unseen' : 'Mark as solved alone'}
                   aria-label={`Toggle solved status for ${p.title}. Currently ${status}`}
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt ${
                     status === 'solved'
-                      ? 'border-emerald-500 bg-emerald-500 text-zinc-950'
+                      ? 'border-emerald-500 bg-emerald-500 text-canvas'
                       : status === 'hint'
-                      ? 'border-amber-500/50 bg-amber-500/10 text-amber-400'
+                      ? 'border-amber-500/50 bg-amber-500/15 text-amber-400'
                       : status === 'stuck'
-                      ? 'border-red-500/50 bg-red-500/10 text-red-400'
-                      : 'border-zinc-700 bg-zinc-800/60 hover:border-zinc-500 text-transparent'
+                      ? 'border-rose-500/50 bg-rose-500/15 text-rose-400'
+                      : 'border-hairline bg-canvas hover:border-pewter text-transparent'
                   }`}
                 >
-                  <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                  <Check className="h-3 w-3 stroke-[2.5]" />
                 </button>
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
                       href={`/problems/${p.slug}`}
-                      className="text-sm font-medium text-zinc-100 transition hover:text-emerald-400 focus-visible:outline-none focus-visible:underline"
+                      className="text-sm font-medium text-ink transition hover:text-cobalt focus-visible:outline-none focus-visible:underline"
                     >
                       {p.title}
                     </Link>
 
+                    {showTrackBadges && p.isCore && (
+                      <span
+                        title="Core 50 canonical pattern problem"
+                        className="rounded border border-cobalt/30 bg-cobalt/10 px-1.5 py-0.5 font-mono text-[10px] text-blue-300"
+                      >
+                        Core 50
+                      </span>
+                    )}
+
+                    {showTrackBadges && !p.isCore && p.isBlind75 && (
+                      <span
+                        title="Part of the Blind 75 set"
+                        className="rounded border border-hairline bg-canvas px-1.5 py-0.5 font-mono text-[10px] text-pewter"
+                      >
+                        Blind 75
+                      </span>
+                    )}
+
                     {isDue && (
-                      <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[11px] font-medium text-amber-300">
-                        <Clock className="h-3 w-3" />
-                        Due for review
+                      <span className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] text-amber-300">
+                        <Clock className="h-2.5 w-2.5" />
+                        Due today
                       </span>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
-                <StatusBadge status={status} />
+              <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                <span className="hidden md:inline-block font-mono text-[11px] text-pewter">
+                  {p.time}
+                </span>
+                {status !== 'todo' && <StatusBadge status={status} />}
                 <DifficultyBadge d={p.difficulty} />
 
                 <a
                   href={p.url}
                   target="_blank"
                   rel="noreferrer"
-                  aria-label={`Open ${p.title} problem description on LeetCode`}
+                  aria-label={`Open ${p.title} on LeetCode`}
                   title="Open on LeetCode"
-                  className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  className="rounded-md p-1.5 text-pewter transition hover:bg-canvas hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
-
-                <Link
-                  href={`/problems/${p.slug}`}
-                  aria-label={`Practice ${p.title}`}
-                  className="hidden sm:inline-flex items-center rounded-lg border border-zinc-800 bg-zinc-900/40 p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-white group-hover:border-zinc-700"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
               </div>
             </li>
           );

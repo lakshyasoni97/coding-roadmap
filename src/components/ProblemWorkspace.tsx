@@ -3,16 +3,11 @@
 import { useState, useTransition, useSyncExternalStore, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  Lightbulb,
-  Sparkles,
   Check,
   AlertCircle,
   HelpCircle,
-  ArrowRight,
   Loader2,
   Lock,
-  FileEdit,
-  MessageSquare,
   Send,
   Trash2,
 } from 'lucide-react';
@@ -21,16 +16,16 @@ import { analyzeApproachAction, getHintAction, askAboutCodeAction, type ChatMess
 import { rateProblemAction, saveNotesAction } from '@/lib/progress.actions';
 
 const QUICK_QUESTIONS = [
-  'Find bugs or edge cases',
+  'Check edge cases',
   'Explain what my code does',
-  'How can I optimize this?',
-  'Trace with a sample input',
+  'Can I reduce space complexity?',
+  'Trace with a small input',
 ];
 
 const HINT_STEPS = [
-  { level: 1 as const, label: 'Level 1: Gentle Nudge', desc: 'A subtle mental direction without code' },
-  { level: 2 as const, label: 'Level 2: Core Pattern & Approach', desc: 'The exact algorithmic pattern to apply' },
-  { level: 3 as const, label: 'Level 3: Python Pseudocode', desc: 'Structural pseudocode walkthrough' },
+  { level: 1 as const, label: 'Hint 1 · Mental nudge', desc: 'Direction without giving away the algorithm' },
+  { level: 2 as const, label: 'Hint 2 · Pattern & invariant', desc: 'The data structure and key state to maintain' },
+  { level: 3 as const, label: 'Hint 3 · Python skeleton', desc: 'Step-by-step structural walkthrough' },
 ];
 
 const RATING_OPTIONS: {
@@ -38,38 +33,34 @@ const RATING_OPTIONS: {
   label: string;
   schedule: string;
   activeClass: string;
-  badgeClass: string;
   icon: typeof Check;
 }[] = [
   {
     status: 'solved',
     label: 'Solved alone',
-    schedule: 'Review in 7–21 days',
-    activeClass: 'border-emerald-500 bg-emerald-500/15 text-emerald-300 ring-2 ring-emerald-500/40',
-    badgeClass: 'text-emerald-400',
+    schedule: '7–21d interval',
+    activeClass: 'border-emerald-500 bg-emerald-500/15 text-emerald-300',
     icon: Check,
   },
   {
     status: 'hint',
-    label: 'Needed hints',
-    schedule: 'Review in 2 days',
-    activeClass: 'border-amber-500 bg-amber-500/15 text-amber-300 ring-2 ring-amber-500/40',
-    badgeClass: 'text-amber-400',
+    label: 'Assisted',
+    schedule: '2d interval',
+    activeClass: 'border-amber-500 bg-amber-500/15 text-amber-300',
     icon: HelpCircle,
   },
   {
     status: 'stuck',
-    label: 'Got stuck',
-    schedule: 'Review tomorrow',
-    activeClass: 'border-red-500 bg-red-500/15 text-red-300 ring-2 ring-red-500/40',
-    badgeClass: 'text-red-400',
+    label: 'Needs recall',
+    schedule: '1d interval',
+    activeClass: 'border-rose-500 bg-rose-500/15 text-rose-300',
     icon: AlertCircle,
   },
 ];
 
 function Rich({ text }: { text: string }) {
   return (
-    <div className="space-y-1.5 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
+    <div className="space-y-1.5 whitespace-pre-wrap text-sm leading-relaxed text-ink max-w-[68ch]">
       {text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
         part.startsWith('**') ? (
           <strong key={i} className="block pt-1.5 font-semibold text-white">
@@ -101,7 +92,7 @@ export function ProblemWorkspace({
   const [approach, setApproach] = useState('');
   const [analysis, setAnalysis] = useState(initialAnalysis);
   const [analyzing, startAnalyze] = useTransition();
-  const [chatOpen, setChatOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'hints' | 'qa' | 'notes'>('hints');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
   const [asking, startAsking] = useTransition();
@@ -149,20 +140,20 @@ export function ProblemWorkspace({
   }
 
   useEffect(() => {
-    if (chatOpen) {
+    if (activeTab === 'qa') {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  }, [chatMessages, chatOpen]);
+  }, [chatMessages, activeTab]);
 
   function handleAskQuestion(customQuestion?: string) {
     const q = (customQuestion ?? question).trim();
     if (!q || asking) return;
     if (!approach.trim()) {
-      setError('Paste your code or approach in the editor box above before asking a question.');
+      setError('Write or paste your Python code on the left before asking a question.');
       return;
     }
     setError(null);
-    setChatOpen(true);
+    setActiveTab('qa');
     const historySnapshot = chatMessages;
     const nextMessages: ChatMessage[] = [...historySnapshot, { role: 'user', content: q }];
     setChatMessages(nextMessages);
@@ -209,426 +200,419 @@ export function ProblemWorkspace({
     }
   }
 
+  const revealedHintCount = Object.keys(hints).length;
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {error && (
         <div
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300 flex items-start gap-3"
+          className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-200 flex items-start gap-2.5"
         >
-          <AlertCircle className="h-5 w-5 shrink-0 text-red-400 mt-0.5" />
+          <AlertCircle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
           <div className="flex-1">{error}</div>
         </div>
       )}
 
-      {/* SECTION 1: Approach / Solution Code */}
-      <section className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/30 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-emerald-400" />
-              1. Your Approach or Python Solution
-            </h2>
-            <p className="text-xs text-zinc-400">
-              Paste your solution or brainstorm your approach to verify Time & Space complexity.
-            </p>
-          </div>
-          <span className="text-[11px] font-mono text-zinc-500 hidden sm:inline">
-            Press{' '}
-            <kbd
-              suppressHydrationWarning
-              className="rounded bg-zinc-800 px-1.5 py-0.5 text-zinc-400 border border-zinc-700"
-            >
-              {isMac ? '⌘ Enter' : 'Ctrl+Enter'}
-            </kbd>{' '}
-            to analyze
-          </span>
-        </div>
-
-        <div className="relative rounded-xl border border-zinc-800 bg-zinc-950/80 focus-within:border-emerald-500/60 focus-within:ring-1 focus-within:ring-emerald-500/40">
-          <textarea
-            value={approach}
-            onChange={(e) => setApproach(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={9}
-            placeholder={`def solution():\n    # Describe or paste your implementation here...\n    pass`}
-            className="w-full resize-y rounded-xl bg-transparent p-4 font-mono text-xs sm:text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none leading-relaxed"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5 pt-1">
-          <button
-            type="button"
-            onClick={handleAnalyze}
-            disabled={analyzing || !approach.trim()}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-          >
-            {analyzing ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>Analyzing Complexity…</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Analyze Time & Space Complexity</span>
-              </>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              const next = !chatOpen;
-              setChatOpen(next);
-              if (next) {
-                setTimeout(() => chatInputRef.current?.focus(), 50);
-              }
-            }}
-            aria-expanded={chatOpen}
-            className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-              chatOpen
-                ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-300'
-                : 'border-zinc-700 bg-zinc-800/80 text-zinc-200 hover:border-zinc-600 hover:bg-zinc-800'
-            }`}
-          >
-            <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
-            <span>Ask Questions About My Code</span>
-            {chatMessages.length > 0 && (
-              <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">
-                {Math.ceil(chatMessages.length / 2)}
+      {/* Two-Column Studio Workbench */}
+      <div className="grid gap-6 lg:grid-cols-12 items-start">
+        {/* LEFT COLUMN (7 cols): Code Editor, Complexity Feedback & Spaced Repetition Dock */}
+        <div className="lg:col-span-7 space-y-5">
+          <div className="rounded-xl border border-hairline bg-surface overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline px-4 py-3 bg-surface">
+              <div>
+                <h2 className="text-xs font-semibold text-white">Python solution or approach</h2>
+                <p className="text-[11px] text-pewter">
+                  Write your solution or pseudocode to verify time and space complexity
+                </p>
+              </div>
+              <span className="font-mono text-[11px] text-pewter hidden sm:inline">
+                <kbd
+                  suppressHydrationWarning
+                  className="rounded bg-canvas px-1.5 py-0.5 text-ink border border-hairline"
+                >
+                  {isMac ? '⌘↵' : 'Ctrl+Enter'}
+                </kbd>{' '}
+                to check
               </span>
-            )}
-          </button>
-        </div>
-
-        {analysis && (
-          <div
-            aria-live="polite"
-            className="mt-4 rounded-xl border border-zinc-800/90 bg-zinc-950 p-5 space-y-2"
-          >
-            <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 text-xs font-semibold text-emerald-400">
-              <Sparkles className="h-3.5 w-3.5" />
-              AI Complexity & Approach Feedback
             </div>
-            <Rich text={analysis} />
-          </div>
-        )}
 
-        {chatOpen && (
-          <div className="mt-4 rounded-xl border border-zinc-800/90 bg-zinc-950 p-4 sm:p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
-              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
-                <MessageSquare className="h-3.5 w-3.5" />
-                <span>Code Q&A Assistant</span>
-                <span className="text-[11px] font-normal text-zinc-500">
-                  (reads the code in your editor above)
+            <textarea
+              value={approach}
+              onChange={(e) => setApproach(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={12}
+              placeholder={`def solution():\n    # Write your Python implementation or outline your invariant...\n    pass`}
+              className="w-full resize-y bg-canvas p-4 font-mono text-xs sm:text-sm text-ink placeholder:text-pewter/50 focus:outline-none leading-relaxed"
+            />
+
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline bg-surface px-4 py-2.5">
+              <button
+                type="button"
+                onClick={handleAnalyze}
+                disabled={analyzing || !approach.trim()}
+                className="inline-flex items-center gap-2 rounded-lg bg-cobalt px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+              >
+                {analyzing ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Checking complexity…</span>
+                  </>
+                ) : (
+                  <span>Check complexity</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('qa');
+                  setTimeout(() => chatInputRef.current?.focus(), 50);
+                }}
+                className="text-xs font-medium text-pewter transition hover:text-white"
+              >
+                Ask a question about this code
+              </button>
+            </div>
+          </div>
+
+          {analysis && (
+            <div
+              aria-live="polite"
+              className="rounded-xl border border-hairline bg-surface p-5 space-y-2.5"
+            >
+              <div className="flex items-center justify-between border-b border-hairline pb-2">
+                <span className="text-xs font-semibold text-cobalt">
+                  Complexity &amp; approach review
                 </span>
               </div>
-              {chatMessages.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setChatMessages([])}
-                  disabled={asking}
-                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-40"
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Clear chat
-                </button>
+              <Rich text={analysis} />
+            </div>
+          )}
+
+          {/* Spaced-Repetition Self-Assessment Dock */}
+          <div className="rounded-xl border border-hairline bg-surface p-5 space-y-3.5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <div>
+                <h2 className="text-xs font-semibold text-white">Log recall outcome</h2>
+                <p className="text-[11px] text-pewter">
+                  Sets the next spaced-repetition review interval for this problem
+                </p>
+              </div>
+              {status !== 'todo' && (
+                <span className="font-mono text-[11px] text-emerald-400">
+                  Logged ({ RATING_OPTIONS.find((o) => o.status === status)?.label })
+                </span>
               )}
             </div>
 
-            {/* Quick starter prompt chips */}
-            <div className="flex flex-wrap gap-1.5">
-              {QUICK_QUESTIONS.map((q) => (
-                <button
-                  key={q}
-                  type="button"
-                  disabled={asking || !approach.trim()}
-                  onClick={() => handleAskQuestion(q)}
-                  className="rounded-lg border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-[11px] font-medium text-zinc-300 transition hover:border-emerald-500/40 hover:bg-zinc-800 hover:text-white disabled:opacity-40"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
+            <div className="grid gap-2.5 sm:grid-cols-3">
+              {RATING_OPTIONS.map((opt) => {
+                const isSelected = status === opt.status;
+                const Icon = opt.icon;
 
-            {/* Message History */}
-            {chatMessages.length > 0 ? (
-              <div
-                aria-live="polite"
-                className="max-h-96 space-y-3 overflow-y-auto pr-1"
-              >
-                {chatMessages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex flex-col ${
-                      msg.role === 'user' ? 'items-end' : 'items-start'
+                return (
+                  <button
+                    key={opt.status}
+                    type="button"
+                    onClick={() => handleRate(opt.status)}
+                    disabled={ratingPending}
+                    aria-pressed={isSelected}
+                    className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt ${
+                      isSelected
+                        ? opt.activeClass
+                        : 'border-hairline bg-canvas/70 hover:border-pewter/50 hover:bg-elevated/60'
                     }`}
                   >
+                    <div className="flex w-full items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-white">
+                        <Icon className="h-3.5 w-3.5" />
+                        {opt.label}
+                      </span>
+                      {isSelected && <Check className="h-3.5 w-3.5 text-emerald-400" />}
+                    </div>
+                    <span className="font-mono text-[11px] text-pewter">{opt.schedule}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {status !== 'todo' && (
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-hairline">
+                <span className="text-xs text-pewter">
+                  Review scheduled in your recall queue.
+                </span>
+
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-cobalt px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+                >
+                  Next problem in queue
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN (5 cols): Recall Inspector Rail (Hints, Code Q&A, Personal Notes) */}
+        <aside className="lg:col-span-5 rounded-xl border border-hairline bg-surface overflow-hidden">
+          {/* Inspector Navigation Tabs */}
+          <div
+            role="tablist"
+            aria-label="Workbench recall tools"
+            className="grid grid-cols-3 border-b border-hairline bg-canvas/50 p-1 gap-1"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'hints'}
+              onClick={() => setActiveTab('hints')}
+              className={`rounded-lg py-2 text-xs font-medium transition ${
+                activeTab === 'hints'
+                  ? 'bg-elevated text-white shadow-sm'
+                  : 'text-pewter hover:text-ink'
+              }`}
+            >
+              Hints ({revealedHintCount}/3)
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'qa'}
+              onClick={() => setActiveTab('qa')}
+              className={`rounded-lg py-2 text-xs font-medium transition ${
+                activeTab === 'qa'
+                  ? 'bg-elevated text-white shadow-sm'
+                  : 'text-pewter hover:text-ink'
+              }`}
+            >
+              Code Q&amp;A {chatMessages.length > 0 ? `(${Math.ceil(chatMessages.length / 2)})` : ''}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'notes'}
+              onClick={() => setActiveTab('notes')}
+              className={`rounded-lg py-2 text-xs font-medium transition ${
+                activeTab === 'notes'
+                  ? 'bg-elevated text-white shadow-sm'
+                  : 'text-pewter hover:text-ink'
+              }`}
+            >
+              Notes {notes.trim() ? '•' : ''}
+            </button>
+          </div>
+
+          {/* TAB 1: Progressive Active-Recall Hints */}
+          {activeTab === 'hints' && (
+            <div className="p-4 sm:p-5 space-y-3">
+              <p className="text-xs text-pewter">
+                Unlock one stage at a time only when stuck to preserve active recall.
+              </p>
+
+              <div className="space-y-2.5" aria-live="polite">
+                {HINT_STEPS.map(({ level, label, desc }) => {
+                  const isRevealed = Boolean(hints[level]);
+                  const isUnlocked = level === 1 || Boolean(hints[level - 1]);
+                  const isLoading = hintLoading === level;
+
+                  return (
                     <div
-                      className={`max-w-[90%] rounded-xl px-3.5 py-2.5 text-sm ${
-                        msg.role === 'user'
-                          ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-100'
-                          : 'bg-zinc-900/90 border border-zinc-800 text-zinc-200 w-full'
+                      key={level}
+                      className={`rounded-lg border p-3.5 transition ${
+                        isRevealed
+                          ? 'border-hairline bg-canvas'
+                          : isUnlocked
+                          ? 'border-hairline bg-canvas/50'
+                          : 'border-hairline/50 bg-canvas/20 opacity-60'
                       }`}
                     >
-                      {msg.role === 'user' ? (
-                        <p className="whitespace-pre-wrap text-xs sm:text-sm leading-relaxed">
-                          {msg.content}
-                        </p>
-                      ) : (
-                        <Rich text={msg.content} />
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="text-xs font-semibold text-white">{label}</h3>
+                          {!isRevealed && <p className="text-[11px] text-pewter mt-0.5">{desc}</p>}
+                        </div>
+
+                        {!isRevealed ? (
+                          <button
+                            type="button"
+                            disabled={!isUnlocked || isLoading}
+                            onClick={() => revealHint(level)}
+                            className="shrink-0 rounded-md border border-hairline bg-surface px-2.5 py-1 text-xs font-medium text-ink transition hover:bg-elevated disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+                          >
+                            {isLoading ? (
+                              <span className="inline-flex items-center gap-1">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+                              </span>
+                            ) : !isUnlocked ? (
+                              <span className="inline-flex items-center gap-1 text-pewter">
+                                <Lock className="h-3 w-3" /> Locked
+                              </span>
+                            ) : (
+                              'Reveal'
+                            )}
+                          </button>
+                        ) : (
+                          <span className="font-mono text-[10px] text-emerald-400">Revealed</span>
+                        )}
+                      </div>
+
+                      {isRevealed && (
+                        <div className="mt-2.5 pt-2.5 border-t border-hairline/80">
+                          <Rich text={hints[level]} />
+                        </div>
                       )}
                     </div>
-                  </div>
-                ))}
-
-                {asking && (
-                  <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/60 px-3.5 py-2.5 text-xs text-zinc-400">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400" />
-                    <span>Inspecting your code and thinking…</span>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
+                  );
+                })}
               </div>
-            ) : (
-              <p className="text-xs text-zinc-500 py-1">
-                {approach.trim()
-                  ? 'Ask anything about your code above — e.g. why a test case fails, what a line does, or how to simplify a loop.'
-                  : 'Paste your code or approach in the editor above first, then ask any question about it here.'}
-              </p>
-            )}
-
-            {/* Question Input Form */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleAskQuestion();
-              }}
-              className="flex items-center gap-2 pt-1"
-            >
-              <input
-                ref={chatInputRef}
-                type="text"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                disabled={asking}
-                placeholder={
-                  approach.trim()
-                    ? 'Ask a question about your pasted code… (Enter to send)'
-                    : 'Paste your code in the box above first…'
-                }
-                className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900/90 px-3.5 py-2 text-xs sm:text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-emerald-500/60 focus:outline-none focus:ring-1 focus-within:ring-emerald-500/40 disabled:opacity-50"
-              />
-              <button
-                type="submit"
-                disabled={asking || !question.trim() || !approach.trim()}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-              >
-                {asking ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Send className="h-3.5 w-3.5" />
-                )}
-                <span>Ask</span>
-              </button>
-            </form>
-          </div>
-        )}
-      </section>
-
-      {/* SECTION 2: Gated Progressive Hints */}
-      <section className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/30 p-5">
-        <div>
-          <h2 className="text-sm font-bold text-white flex items-center gap-2">
-            <Lightbulb className="h-4 w-4 text-amber-400" />
-            2. Progressive Active-Recall Hints
-          </h2>
-          <p className="text-xs text-zinc-400">
-            Try to solve it without peeking first. Unlock one step at a time if you get stuck.
-          </p>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          {HINT_STEPS.map(({ level, label, desc }) => {
-            const isRevealed = Boolean(hints[level]);
-            const isUnlocked = level === 1 || Boolean(hints[level - 1]);
-            const isLoading = hintLoading === level;
-
-            return (
-              <div
-                key={level}
-                className={`rounded-xl border p-3.5 transition flex flex-col justify-between ${
-                  isRevealed
-                    ? 'border-emerald-500/30 bg-emerald-500/5'
-                    : isUnlocked
-                    ? 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700'
-                    : 'border-zinc-800/40 bg-zinc-950/40 opacity-60'
-                }`}
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-white">{label}</span>
-                    {isRevealed ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
-                    ) : !isUnlocked ? (
-                      <Lock className="h-3.5 w-3.5 text-zinc-500" />
-                    ) : null}
-                  </div>
-                  <p className="text-[11px] text-zinc-400">{desc}</p>
-                </div>
-
-                <div className="pt-3">
-                  {!isRevealed ? (
-                    <button
-                      type="button"
-                      disabled={!isUnlocked || isLoading}
-                      onClick={() => revealHint(level)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-2.5 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-zinc-700 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                    >
-                      {isLoading ? (
-                        <span className="inline-flex items-center gap-1.5">
-                          <Loader2 className="h-3 w-3 animate-spin" /> Fetching…
-                        </span>
-                      ) : !isUnlocked ? (
-                        'Unlock Level ' + (level - 1) + ' first'
-                      ) : (
-                        'Reveal hint ' + level
-                      )}
-                    </button>
-                  ) : (
-                    <span className="text-[11px] font-medium text-emerald-400 inline-flex items-center gap-1">
-                      <Check className="h-3 w-3" /> Revealed
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Revealed Hint Bodies */}
-        <div className="space-y-3" aria-live="polite">
-          {[1, 2, 3].map(
-            (lvl) =>
-              hints[lvl] && (
-                <div
-                  key={lvl}
-                  className="rounded-xl border border-zinc-800 bg-zinc-950/80 p-4 space-y-1"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-400">
-                    Hint {lvl}
-                  </p>
-                  <Rich text={hints[lvl]} />
-                </div>
-              )
+            </div>
           )}
-        </div>
-      </section>
 
-      {/* SECTION 3: Self-Assessment & Spaced Repetition */}
-      <section className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/30 p-5">
-        <div>
-          <h2 className="text-sm font-bold text-white">3. Self-Assessment: How did it go?</h2>
-          <p className="text-xs text-zinc-400">
-            Be honest with yourself. This directly determines when the problem returns to your spaced-repetition queue.
-          </p>
-        </div>
+          {/* TAB 2: Code Q&A Assistant */}
+          {activeTab === 'qa' && (
+            <div className="p-4 sm:p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-pewter">
+                  Inspects the Python code currently in your editor.
+                </p>
+                {chatMessages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setChatMessages([])}
+                    disabled={asking}
+                    className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-pewter transition hover:bg-elevated hover:text-white disabled:opacity-40"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Clear
+                  </button>
+                )}
+              </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          {RATING_OPTIONS.map((opt) => {
-            const isSelected = status === opt.status;
-            const Icon = opt.icon;
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_QUESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    disabled={asking || !approach.trim()}
+                    onClick={() => handleAskQuestion(q)}
+                    className="rounded-md border border-hairline bg-canvas px-2.5 py-1 text-[11px] text-ink transition hover:border-cobalt/50 hover:bg-elevated disabled:opacity-40"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
 
-            return (
-              <button
-                key={opt.status}
-                type="button"
-                onClick={() => handleRate(opt.status)}
-                disabled={ratingPending}
-                aria-pressed={isSelected}
-                className={`flex flex-col items-start gap-1 rounded-xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                  isSelected
-                    ? opt.activeClass
-                    : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 hover:bg-zinc-850/60'
-                }`}
-              >
-                <div className="flex w-full items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-xs font-bold text-white">
-                    <Icon className="h-3.5 w-3.5" />
-                    {opt.label}
-                  </span>
-                  {isSelected && <Check className="h-4 w-4 text-emerald-400" />}
+              {chatMessages.length > 0 ? (
+                <div
+                  aria-live="polite"
+                  className="max-h-80 space-y-2.5 overflow-y-auto pr-1"
+                >
+                  {chatMessages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex flex-col ${
+                        msg.role === 'user' ? 'items-end' : 'items-start'
+                      }`}
+                    >
+                      <div
+                        className={`max-w-[92%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
+                          msg.role === 'user'
+                            ? 'bg-cobalt/15 border border-cobalt/30 text-ink'
+                            : 'bg-canvas border border-hairline text-ink w-full'
+                        }`}
+                      >
+                        {msg.role === 'user' ? (
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                        ) : (
+                          <Rich text={msg.content} />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {asking && (
+                    <div className="flex items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 py-2 text-xs text-pewter">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-cobalt" />
+                      <span>Inspecting your code…</span>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
                 </div>
-                <span className="text-[11px] text-zinc-400">{opt.schedule}</span>
-              </button>
-            );
-          })}
-        </div>
+              ) : (
+                <p className="text-xs text-pewter py-2">
+                  {approach.trim()
+                    ? 'Ask why a test case fails, how an invariant holds, or how to simplify a loop.'
+                    : 'Paste your code in the editor on the left first, then ask a question here.'}
+                </p>
+              )}
 
-        {status !== 'todo' && (
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-800/60">
-            <span className="text-xs text-emerald-400 font-medium inline-flex items-center gap-1">
-              <Check className="h-3.5 w-3.5" /> Rating recorded & review scheduled
-            </span>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleAskQuestion();
+                }}
+                className="flex items-center gap-2 pt-1"
+              >
+                <input
+                  ref={chatInputRef}
+                  type="text"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  disabled={asking}
+                  placeholder={
+                    approach.trim()
+                      ? 'Ask about your code…'
+                      : 'Write code on the left first…'
+                  }
+                  className="flex-1 rounded-lg border border-hairline bg-canvas px-3 py-2 text-xs text-ink placeholder:text-pewter/60 focus:border-cobalt focus:outline-none disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={asking || !question.trim() || !approach.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-cobalt px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cobalt"
+                >
+                  {asking ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5" />
+                  )}
+                  <span>Ask</span>
+                </button>
+              </form>
+            </div>
+          )}
 
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-            >
-              <span>Continue to Next Recommended Problem</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-        )}
-      </section>
+          {/* TAB 3: Personal Notes */}
+          {activeTab === 'notes' && (
+            <div className="p-4 sm:p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-pewter">
+                  Record invariants, edge cases, or mistakes to remember on next recall.
+                </p>
+                <span className="font-mono text-[11px] text-pewter">
+                  {notesSaveStatus === 'saving' && 'Saving…'}
+                  {notesSaveStatus === 'saved' && <span className="text-emerald-400">Saved</span>}
+                  {notesSaveStatus === 'error' && <span className="text-rose-400">Save failed</span>}
+                  {notesSaveStatus === 'idle' && 'Autosaves'}
+                </span>
+              </div>
 
-      {/* SECTION 4: Personal Notes */}
-      <section className="space-y-3 rounded-2xl border border-zinc-800 bg-zinc-900/30 p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <FileEdit className="h-4 w-4 text-zinc-400" />
-              4. Personal Notes & Key Takeaways
-            </h2>
-            <p className="text-xs text-zinc-400">
-              Note edge cases, gotchas, or why you got stuck.
-            </p>
-          </div>
-
-          <div className="text-xs font-medium">
-            {notesSaveStatus === 'saving' && (
-              <span className="text-zinc-400 inline-flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" /> Saving…
-              </span>
-            )}
-            {notesSaveStatus === 'saved' && (
-              <span className="text-emerald-400 inline-flex items-center gap-1">
-                <Check className="h-3 w-3" /> Saved to cloud
-              </span>
-            )}
-            {notesSaveStatus === 'error' && (
-              <span className="text-red-400">Failed to save</span>
-            )}
-            {notesSaveStatus === 'idle' && (
-              <span className="text-zinc-500">Autosaves on blur</span>
-            )}
-          </div>
-        </div>
-
-        <textarea
-          value={notes}
-          onChange={(e) => {
-            setNotes(e.target.value);
-            if (notesSaveStatus === 'saved') setNotesSaveStatus('idle');
-          }}
-          onBlur={handleNotesBlur}
-          rows={3}
-          placeholder="e.g. Remember that binary search requires sorted array; watch out for off-by-one with hi = len - 1 vs hi = len..."
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 p-3.5 text-xs sm:text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/40 focus:outline-none"
-        />
-      </section>
+              <textarea
+                value={notes}
+                onChange={(e) => {
+                  setNotes(e.target.value);
+                  if (notesSaveStatus === 'saved') setNotesSaveStatus('idle');
+                }}
+                onBlur={handleNotesBlur}
+                rows={8}
+                placeholder="e.g. Window is valid while (r - l + 1) - max_freq <= k. No need to decrement max_freq when shrinking left pointer..."
+                className="w-full rounded-lg border border-hairline bg-canvas p-3 text-xs sm:text-sm text-ink placeholder:text-pewter/50 focus:border-cobalt focus:outline-none leading-relaxed"
+              />
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

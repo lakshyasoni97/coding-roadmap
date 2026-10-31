@@ -1,11 +1,25 @@
 'use server';
 
+import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { PROBLEM_BY_SLUG } from '@/content/neetcode150';
+import { PROBLEM_BY_SLUG, TRACK_COOKIE, parseTrack, type TrackId } from '@/content/neetcode150';
 import { createClient } from '@/lib/supabase/server';
 import { nextReviewDate, todayString, type Status } from '@/lib/recommend';
 
 const STATUSES: Status[] = ['todo', 'solved', 'hint', 'stuck'];
+
+export async function setRoadmapTrackAction(track: TrackId) {
+  const validTrack = parseTrack(track);
+  const cookieStore = await cookies();
+  cookieStore.set(TRACK_COOKIE, validTrack, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365, // 1 year
+    sameSite: 'lax',
+  });
+  revalidatePath('/');
+  revalidatePath('/topics/[slug]', 'page');
+  return { ok: true, track: validTrack };
+}
 
 async function ctx(slug: string) {
   if (!PROBLEM_BY_SLUG.has(slug)) throw new Error('Unknown problem');
