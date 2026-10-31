@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { Status } from '@/lib/recommend';
 import { analyzeApproachAction, getHintAction, askAboutCodeAction, type ChatMessage } from '@/lib/ai';
+import { Rich } from '@/components/ui';
 import { rateProblemAction, saveNotesAction } from '@/lib/progress.actions';
 
 const QUICK_QUESTIONS = [
@@ -57,22 +58,6 @@ const RATING_OPTIONS: {
     icon: AlertCircle,
   },
 ];
-
-function Rich({ text }: { text: string }) {
-  return (
-    <div className="space-y-1.5 whitespace-pre-wrap text-sm leading-relaxed text-ink max-w-[68ch]">
-      {text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
-        part.startsWith('**') ? (
-          <strong key={i} className="block pt-1.5 font-semibold text-white">
-            {part.slice(2, -2)}
-          </strong>
-        ) : (
-          <span key={i}>{part}</span>
-        )
-      )}
-    </div>
-  );
-}
 
 export function ProblemWorkspace({
   slug,

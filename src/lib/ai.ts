@@ -11,6 +11,9 @@ async function requireUser() {
   return data.user ? { supabase, user: data.user } : null;
 }
 
+const SYSTEM_FORMAT_INSTRUCTION =
+  'Format responses in clean Markdown: keep **bold** terms (such as **O(n)**) and `inline code` inline within sentences rather than on separate lines, and keep `**Bold Label:** explanation` on a single line inside list items.';
+
 async function gemini(prompt: string): Promise<Result> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return { error: 'GEMINI_API_KEY is missing in .env.local.' };
@@ -27,6 +30,7 @@ async function gemini(prompt: string): Promise<Result> {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
           body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM_FORMAT_INSTRUCTION }] },
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             generationConfig: {
               temperature: 0.3,
@@ -172,7 +176,8 @@ Learner's question: ${trimmedQuestion}
 
 Instructions:
 - Answer directly, referencing specific lines, variables, or logic in their pasted code.
-- Keep your response concise (under 150 words unless a trace is requested) and easy to scan. Use **bold** headers or short bullet points where helpful.
+- Keep your response concise (under 150 words unless a trace is requested) and easy to scan.
+- Format cleanly in Markdown: keep **bold** terms (like **O(n)**) and \`inline code\` inline within sentences, and keep \`**Bold Label:** explanation\` on a single line inside bullet or numbered list items.
 - Guide them toward understanding and fixing issues themselves rather than dumping a complete replacement solution, unless they explicitly ask for a small snippet.`;
 
   return gemini(prompt);
